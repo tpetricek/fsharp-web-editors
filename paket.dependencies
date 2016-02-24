@@ -1,0 +1,7 @@
+source https://nuget.org/api/v2
+
+nuget Suave
+nuget FSharp.Compiler.Service
+
+github matthid/Yaaf.FSharp.Scripting src/source/Yaaf.FSharp.Scripting/YaafFSharpScripting.fs
+  
