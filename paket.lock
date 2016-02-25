@@ -3,8 +3,11 @@ NUGET
   specs:
     FSharp.Compiler.Service (2.0.0.6)
     FSharp.Core (4.0.0.1)
+    FSharp.Data (2.2.5)
+      Zlib.Portable (>= 1.10.0) - framework: portable-net40+sl50+wp80+win80
     Suave (1.1.1)
       FSharp.Core (>= 3.1.2.5)
+    Zlib.Portable (1.11.0) - framework: portable-net40+sl50+wp80+win80
 GITHUB
   remote: matthid/Yaaf.FSharp.Scripting
   specs:

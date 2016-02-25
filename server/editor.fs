@@ -155,22 +155,14 @@ let getMethodOverloads (fileName, source) (line, col) (checker:FSharpChecker) = 
 open Suave
 open Suave.Filters
 open Suave.Operators
+open FSharp.Data
 open System.Runtime.Serialization
 
-[<DataContract>]
-type Declarations =
-  { [<field:DataMember(Name="name")>] name : string
-    [<field:DataMember(Name="glyph")>] glyph : int
-    [<field:DataMember(Name="signature")>] signature : string
-    [<field:DataMember(Name="documentation")>] documentation : string }
-
-[<DataContract>]
-type Error =
-  { [<field:DataMember(Name="startLine")>] startLine : int
-    [<field:DataMember(Name="startColumn")>] startColumn : int
-    [<field:DataMember(Name="endLine")>] endLine : int
-    [<field:DataMember(Name="endColumn")>] endColumn : int
-    [<field:DataMember(Name="message")>] message : string }
+/// Types of JSON values that we are returning from F# Compiler Service calls
+type JsonTypes = JsonProvider<"""{
+    "declaration":{"name":"Method", "glyph":1, "signature":"Text", "documentation":"Text"},
+    "error":{"startLine":1, "startColumn":1, "endLine":1, "endColumn":1, "message":"error"}
+  }""">
 
 /// Read the request stream and pass it to the specified WebPart function
 let requestString f = request (fun r -> 
@@ -192,20 +184,21 @@ let part scriptFile loadScriptLines (checker:FSharpChecker) =
       let! _, check = 
           checkFile (scriptFile, loadScriptString + source) 
           |> checker.Process
-      let res = check.Errors |> Array.map (fun err ->
-          { startLine = err.StartLineAlternate-1-Seq.length loadScriptLines; 
-            endLine = err.EndLineAlternate-1-Seq.length loadScriptLines; 
-            startColumn = err.StartColumn; endColumn = err.EndColumn; 
-            message = err.Message })
-      return! Successful.ok (Json.toJson res) ctx }) 
+      let res = 
+        check.Errors 
+        |> Array.map (fun err ->
+            JsonTypes.Error( err.StartLineAlternate-1-Seq.length loadScriptLines, err.StartColumn,
+                err.EndLineAlternate-1-Seq.length loadScriptLines, err.EndColumn, err.Message).JsonValue)
+        |> JsonValue.Array
+      return! Successful.OK (res.ToString()) ctx }) 
     
     // Get method overloads & parameter info at the specified location in the source
     pathScan "/fseditor/methods/%d/%d" (fun (line, col) -> noCache >=> requestString (fun source ctx -> async {
       let! meths =
         getMethodOverloads (scriptFile, loadScriptString + source) (line + Seq.length loadScriptLines, col)
         |> checker.Process
-      let res = [| for s1, s2 in meths -> s1 + s2 |]
-      return! Successful.ok (Json.toJson res) ctx }))
+      let res = [| for s1, s2 in meths -> JsonValue.String(s1 + s2) |] |> JsonValue.Array
+      return! Successful.OK (res.ToString()) ctx }))
 
     // Get auto-completion for the specified location
     pathScan "/fseditor/declarations/%d/%d" (fun (line, col) -> noCache >=> requestString (fun source ctx -> async {
@@ -214,5 +207,6 @@ let part scriptFile loadScriptLines (checker:FSharpChecker) =
         |> checker.Process
       let res = 
         [| for name, glyph, (sg, info) in decls ->
-             { name = name; glyph = glyph; signature = sg; documentation = info } |]
-      return! Successful.ok (Json.toJson res) ctx })) ]
+             JsonTypes.Declaration(name, glyph, sg, info).JsonValue |] 
+        |> JsonValue.Array
+      return! Successful.OK (res.ToString()) ctx })) ]
