@@ -17,14 +17,19 @@ type ResourceAgent<'T>(resource:'T) =
     while true do
       try
         let! work = inbox.Receive()
-        printfn "Got work"
         do! work resource
-        printfn "Done work"
-      with e -> printfn "Failed: %A" e })
-  member x.Process<'R>(work) : Async<'R> =
-    agent.PostAndAsyncReply(fun reply checker -> async {
-      let! res = work checker
-      reply.Reply(res) })
+      with e -> 
+        () })
+  member x.Process<'R>(work) : Async<'R> = async {
+    let! result = agent.PostAndAsyncReply(fun reply checker -> async {
+      try
+        let! res = work checker
+        reply.Reply(Choice1Of2 res)
+      with e ->
+        reply.Reply(Choice2Of2 e) })
+    match result with 
+    | Choice1Of2 res -> return res
+    | Choice2Of2 e -> return raise (Exception("Processing failed", e)) }
 
 // ------------------------------------------------------------------------------------------------
 // F# compiler service wrapper
@@ -182,18 +187,15 @@ let part scriptFile loadScriptLines (checker:FSharpChecker) =
   choose [
     // Type-check the source code & return list with error information
     path "/fseditor/check" >=> noCache >=> requestString (fun source ctx -> async {
-      printfn "[APP] Check"
       let! _, check = 
           checkFile (scriptFile, loadScriptString + source) 
           |> checker.Process
-      printfn "[APP] Checked"
       let res = 
         check.Errors 
         |> Array.map (fun err ->
             JsonTypes.Error( err.StartLineAlternate-1-Seq.length loadScriptLines, err.StartColumn,
                 err.EndLineAlternate-1-Seq.length loadScriptLines, err.EndColumn, err.Message).JsonValue)
         |> JsonValue.Array
-      printfn "[APP] Res: %O" res
       return! Successful.OK (res.ToString()) ctx }) 
     
     // Get method overloads & parameter info at the specified location in the source
@@ -206,14 +208,11 @@ let part scriptFile loadScriptLines (checker:FSharpChecker) =
 
     // Get auto-completion for the specified location
     pathScan "/fseditor/declarations/%d/%d" (fun (line, col) -> noCache >=> requestString (fun source ctx -> async {
-      printfn "[APP] Declarations"
       let! decls =
         getDeclarations (scriptFile, loadScriptString + source) (line + Seq.length loadScriptLines, col)
         |> checker.Process
-      printfn "[APP] Got: %A" decls
       let res = 
         [| for name, glyph, (sg, info) in decls ->
              JsonTypes.Declaration(name, glyph, sg, info).JsonValue |] 
         |> JsonValue.Array
-      printfn "[APP] Returning: %O" res
       return! Successful.OK (res.ToString()) ctx })) ]
