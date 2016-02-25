@@ -58,7 +58,9 @@
   </Target>
   -->
   <ItemGroup>
+    <Compile Include="client\fsharp-web-editors-demo.html" />
     <Compile Include="server\editor.fs" />
+    <Compile Include="server\evaluator.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -68,7 +70,6 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Web" />
   </ItemGroup>
   <Choose>

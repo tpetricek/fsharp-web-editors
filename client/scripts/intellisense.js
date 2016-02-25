@@ -394,6 +394,19 @@ var DeclarationsIntellisense = function () {
 // Setting up the CodeMirror editor
 // ---------------------------------------------------------------------
 
+// Helper to send request to our server
+function fsiEval(code, callback) {
+  var xmlhttp = new XMLHttpRequest();
+  xmlhttp.onreadystatechange = function () {
+    if (xmlhttp.readyState == XMLHttpRequest.DONE && xmlhttp.status == 200) {
+      callback(JSON.parse(xmlhttp.responseText));
+    }
+  }
+  var url = "/fsi/eval";
+  xmlhttp.open("POST", url, true);
+  xmlhttp.send(code);
+}
+
 function setupEditor(element) {
   // Setup the CodeMirror editor with fsharp mode
   var source = element.innerText;

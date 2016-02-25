@@ -181,9 +181,9 @@ let noCache =
   >=> Writers.setHeader "Expires" "0"
 
 /// The main handler for Suave server!
-let part scriptFile loadScriptLines (checker:FSharpChecker) = 
+let part scriptFile loadScriptLines = 
   let loadScriptString = String.concat "" [ for l in loadScriptLines -> l + "\n" ]
-  let checker = ResourceAgent(checker)
+  let checker = ResourceAgent(FSharpChecker.Create())
   choose [
     // Type-check the source code & return list with error information
     path "/fseditor/check" >=> noCache >=> requestString (fun source ctx -> async {

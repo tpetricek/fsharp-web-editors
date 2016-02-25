@@ -3,5 +3,6 @@ packages
 paket-files
 bin/
 obj/
+*.sln
 *.suo
 .ionide.debug
